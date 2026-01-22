@@ -1,3 +1,5 @@
 Flask
 replit
 psycopg2-binary
+flask-sqlalchemy
+psycopg2-binary

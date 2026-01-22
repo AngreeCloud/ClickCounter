@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 
 from flask import Flask, jsonify, render_template, request
+from flask_sqlalchemy import SQLAlchemy
 
 try:
     from zoneinfo import ZoneInfo  # Python 3.9+
@@ -21,6 +22,21 @@ else:
     db = {}
 
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL').replace('postgres://', 'postgresql://') if os.environ.get('DATABASE_URL') else 'sqlite:///clicks.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db_sql = SQLAlchemy(app)
+
+class Click(db_sql.Model):
+    id = db_sql.Column(db_sql.Integer, primary_key=True)
+    button = db_sql.Column(db_sql.String(50), nullable=False)
+    seq = db_sql.Column(db_sql.Integer, nullable=False)
+    date = db_sql.Column(db_sql.String(20), nullable=False)
+    date_iso = db_sql.Column(db_sql.String(20), nullable=False)
+    time = db_sql.Column(db_sql.String(10), nullable=False)
+    timestamp = db_sql.Column(db_sql.DateTime, nullable=False)
+
+with app.app_context():
+    db_sql.create_all()
 
 ALLOWED_BUTTONS = {"Botão 1", "Botão 2", "Botão 3", "Botão 4"}
 
@@ -30,7 +46,21 @@ META_COUNTER_KEY = "meta:counter"
 
 def _db_get(key: str, default=None):
     try:
-        return db[key]
+        val = db[key]
+        if isinstance(val, (dict, list)):
+            import json
+            # A quick way to convert Replit DB Observed types to plain types
+            # or just recursive conversion
+            def _to_plain(obj):
+                if hasattr(obj, "to_dict"):
+                    return obj.to_dict()
+                if isinstance(obj, dict):
+                    return {k: _to_plain(v) for k, v in obj.items()}
+                if isinstance(obj, list):
+                    return [_to_plain(x) for x in obj]
+                return obj
+            return _to_plain(val)
+        return val
     except KeyError:
         return default
 
@@ -82,6 +112,9 @@ def api_status():
     clicks_today = _db_get(day_key, []) or []
 
     last_click = clicks_today[-1] if clicks_today else None
+    
+    # Total clicks in PostgreSQL
+    total_sql = Click.query.count()
 
     return jsonify(
         {
@@ -90,6 +123,7 @@ def api_status():
             "counter": counter,
             "clicksToday": len(clicks_today),
             "lastClick": last_click,
+            "totalClicksSql": total_sql
         }
     )
 
@@ -131,6 +165,18 @@ def api_click():
     clicks_today = _db_get(day_key, []) or []
     clicks_today.append(record)
     db[day_key] = clicks_today
+
+    # Record in PostgreSQL
+    new_click = Click(
+        button=button,
+        seq=counter,
+        date=today_display,
+        date_iso=today_iso,
+        time=time_hm,
+        timestamp=now
+    )
+    db_sql.session.add(new_click)
+    db_sql.session.commit()
 
     return jsonify(record)
 
