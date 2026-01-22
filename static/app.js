@@ -12,56 +12,60 @@ async function fetchJson(url, options) {
   return data;
 }
 
-function formatClick(click) {
-  return `#${click.seq} · ${click.button} · ${click.date} · ${click.time}`;
-}
+async function ensureNotificationPermission() {
+  if (!("Notification" in window)) return "unsupported";
+  if (Notification.permission === "granted") return "granted";
+  if (Notification.permission === "denied") return "denied";
 
-function renderLastClick(lastClick) {
-  const el = document.getElementById("lastClickText");
-  if (!el) return;
-
-  if (!lastClick) {
-    el.textContent = "Ainda não há cliques hoje.";
-    return;
+  try {
+    const permission = await Notification.requestPermission();
+    return permission;
+  } catch {
+    return "denied";
   }
-
-  el.textContent = formatClick(lastClick);
 }
 
-async function loadLastClick() {
-  const status = await fetchJson("/api/status");
-  renderLastClick(status.lastClick);
+function notifyClick(record) {
+  if (!("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+
+  const title = `Clique registado (Botão ${record.button_id})`;
+  const body = `Seq: ${record.seq}\nData: ${record.date}\nHora: ${record.time}`;
+  new Notification(title, { body });
 }
 
 function setButtonsDisabled(disabled) {
-  document.querySelectorAll("button[data-button]").forEach((btn) => {
+  document.querySelectorAll("button[data-button-id]").forEach((btn) => {
     btn.disabled = disabled;
   });
 }
 
-async function handleClick(buttonName) {
+async function handleClick(buttonId) {
   setButtonsDisabled(true);
   try {
     const record = await fetchJson("/api/click", {
       method: "POST",
-      body: JSON.stringify({ button: buttonName }),
+      body: JSON.stringify({ button_id: buttonId }),
     });
 
-    // Mostra imediatamente o resultado devolvido pelo backend
-    renderLastClick(record);
+    notifyClick(record);
   } finally {
     setButtonsDisabled(false);
   }
 }
 
 function wireUi() {
-  document.querySelectorAll("button[data-button]").forEach((btn) => {
+  document.querySelectorAll("button[data-button-id]").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      const name = btn.getAttribute("data-button");
-      if (!name) return;
+      const idRaw = btn.getAttribute("data-button-id");
+      const buttonId = Number(idRaw);
+      if (!Number.isInteger(buttonId) || buttonId < 1) return;
+
+      // Pedir permissão no contexto de uma ação do utilizador.
+      await ensureNotificationPermission();
 
       try {
-        await handleClick(name);
+        await handleClick(buttonId);
       } catch (err) {
         alert(err.message || "Erro ao registar clique.");
       }
@@ -71,9 +75,4 @@ function wireUi() {
 
 (async function init() {
   wireUi();
-  try {
-    await loadLastClick();
-  } catch (err) {
-    console.error(err);
-  }
 })();

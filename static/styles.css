@@ -70,34 +70,6 @@ body {
     rgba(255, 255, 255, 0.04);
 }
 
-.overlay {
-  position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
-  border: 1px solid var(--border);
-  background: rgba(10, 14, 25, 0.62);
-  border-radius: 14px;
-  padding: 12px 12px;
-  backdrop-filter: blur(10px);
-}
-
-.overlayTitle {
-  font-weight: 800;
-  margin-bottom: 4px;
-}
-
-.overlayText {
-  color: var(--muted);
-  line-height: 1.35;
-  font-size: 14px;
-}
-
-.overlayHint {
-  margin-top: 6px;
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 12px;
-}
 
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
@@ -105,10 +77,3 @@ body {
   font-size: 0.95em;
 }
 
-@media (max-width: 520px) {
-  .overlay {
-    left: 10px;
-    right: 10px;
-    bottom: 10px;
-  }
-}
