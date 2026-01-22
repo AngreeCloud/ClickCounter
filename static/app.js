@@ -16,11 +16,6 @@ function formatClick(click) {
   return `#${click.seq} · ${click.button} · ${click.date} · ${click.time}`;
 }
 
-function setText(id, text) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = text;
-}
-
 function renderLastClick(lastClick) {
   const el = document.getElementById("lastClickText");
   if (!el) return;
@@ -33,27 +28,9 @@ function renderLastClick(lastClick) {
   el.textContent = formatClick(lastClick);
 }
 
-function renderClickList(clicks) {
-  const list = document.getElementById("clickList");
-  if (!list) return;
-
-  list.innerHTML = "";
-  for (const click of clicks) {
-    const li = document.createElement("li");
-    li.textContent = formatClick(click);
-    list.appendChild(li);
-  }
-}
-
-async function refreshAll() {
+async function loadLastClick() {
   const status = await fetchJson("/api/status");
-  setText("statusDate", status.date || "—");
-  setText("statusCounter", String(status.counter ?? "—"));
-  setText("statusTotalToday", String(status.clicksToday ?? "—"));
   renderLastClick(status.lastClick);
-
-  const clicks = await fetchJson("/api/clicks/today");
-  renderClickList(clicks.clicks || []);
 }
 
 function setButtonsDisabled(disabled) {
@@ -70,10 +47,7 @@ async function handleClick(buttonName) {
       body: JSON.stringify({ button: buttonName }),
     });
 
-    // Atualiza status e lista
-    await refreshAll();
-
-    // Pequeno destaque no último clique
+    // Mostra imediatamente o resultado devolvido pelo backend
     renderLastClick(record);
   } finally {
     setButtonsDisabled(false);
@@ -93,23 +67,12 @@ function wireUi() {
       }
     });
   });
-
-  const refreshBtn = document.getElementById("refreshBtn");
-  if (refreshBtn) {
-    refreshBtn.addEventListener("click", async () => {
-      try {
-        await refreshAll();
-      } catch (err) {
-        alert(err.message || "Erro ao atualizar.");
-      }
-    });
-  }
 }
 
 (async function init() {
   wireUi();
   try {
-    await refreshAll();
+    await loadLastClick();
   } catch (err) {
     console.error(err);
   }
