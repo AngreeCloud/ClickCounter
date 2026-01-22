@@ -12,26 +12,24 @@ async function fetchJson(url, options) {
   return data;
 }
 
-async function ensureNotificationPermission() {
-  if (!("Notification" in window)) return "unsupported";
-  if (Notification.permission === "granted") return "granted";
-  if (Notification.permission === "denied") return "denied";
-
-  try {
-    const permission = await Notification.requestPermission();
-    return permission;
-  } catch {
-    return "denied";
-  }
-}
-
 function notifyClick(record) {
-  if (!("Notification" in window)) return;
-  if (Notification.permission !== "granted") return;
+  const container = document.getElementById("notifications");
+  if (!container) return;
 
-  const title = `Clique registado (Botão ${record.button_id})`;
-  const body = `Seq: ${record.seq}\nData: ${record.date}\nHora: ${record.time}`;
-  new Notification(title, { body });
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.innerHTML = `
+    <strong>Clique registado (Botão ${record.button})</strong><br>
+    <small>Seq: ${record.seq} | Hora: ${record.time}</small>
+  `;
+
+  container.appendChild(toast);
+
+  // Remover após 3 segundos
+  setTimeout(() => {
+    toast.classList.add("fade-out");
+    setTimeout(() => toast.remove(), 400);
+  }, 3000);
 }
 
 function setButtonsDisabled(disabled) {
@@ -40,12 +38,12 @@ function setButtonsDisabled(disabled) {
   });
 }
 
-async function handleClick(buttonId) {
+async function handleClick(buttonName) {
   setButtonsDisabled(true);
   try {
     const record = await fetchJson("/api/click", {
       method: "POST",
-      body: JSON.stringify({ button_id: buttonId }),
+      body: JSON.stringify({ button: buttonName }),
     });
 
     notifyClick(record);
@@ -57,16 +55,11 @@ async function handleClick(buttonId) {
 function wireUi() {
   document.querySelectorAll("button[data-button-id]").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      const idRaw = btn.getAttribute("data-button-id");
-      const buttonId = Number(idRaw);
-      if (!Number.isInteger(buttonId) || buttonId < 1) return;
-
-      // Pedir permissão no contexto de uma ação do utilizador.
-      await ensureNotificationPermission();
-
+      const buttonName = btn.innerText.trim();
       try {
-        await handleClick(buttonId);
+        await handleClick(buttonName);
       } catch (err) {
+        // Fallback para erro simples se a notificação UI falhar
         alert(err.message || "Erro ao registar clique.");
       }
     });
