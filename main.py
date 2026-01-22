@@ -94,7 +94,9 @@ def _ensure_today_counter(today_iso: str):
 
     if last_date != today_iso:
         db[META_LAST_DATE_KEY] = today_iso
-        db[META_COUNTER_KEY] = 0
+        # Reset counter for all buttons each day
+        for btn in ALLOWED_BUTTONS:
+            db[f"meta:counter:{btn}"] = 0
 
 
 @app.get("/")
@@ -107,7 +109,9 @@ def api_status():
     _, today_iso, today_display, _ = _now_parts()
     _ensure_today_counter(today_iso)
 
-    counter = int(_db_get(META_COUNTER_KEY, 0) or 0)
+    # Total daily clicks (sum of all buttons)
+    total_today = sum(int(_db_get(f"meta:counter:{btn}", 0) or 0) for btn in ALLOWED_BUTTONS)
+    
     day_key = f"clicks:{today_iso}"
     clicks_today = _db_get(day_key, []) or []
 
@@ -120,7 +124,7 @@ def api_status():
         {
             "date": today_display,
             "dateIso": today_iso,
-            "counter": counter,
+            "counter": total_today,
             "clicksToday": len(clicks_today),
             "lastClick": last_click,
             "totalClicksSql": total_sql
@@ -149,8 +153,10 @@ def api_click():
     now, today_iso, today_display, time_hm = _now_parts()
     _ensure_today_counter(today_iso)
 
-    counter = int(_db_get(META_COUNTER_KEY, 0) or 0) + 1
-    db[META_COUNTER_KEY] = counter
+    # Sequence unique per button
+    button_counter_key = f"meta:counter:{button}"
+    counter = int(_db_get(button_counter_key, 0) or 0) + 1
+    db[button_counter_key] = counter
 
     record = {
         "button": button,
