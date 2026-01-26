@@ -60,6 +60,10 @@ body {
   background: transparent;
 }
 
+.modalBackdrop[hidden] {
+  display: none;
+}
+
 .modalBackdrop {
   position: fixed;
   inset: 0;

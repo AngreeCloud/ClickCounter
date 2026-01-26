@@ -144,4 +144,8 @@ function buildPerHourChart(ctx, perHourToday) {
       if (e.target === helpModal) closeHelp();
     });
   }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeHelp();
+  });
 })();
