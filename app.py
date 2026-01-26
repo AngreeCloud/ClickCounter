@@ -128,7 +128,7 @@ def api_auth_pin():
         return (
             jsonify(
                 {
-                    "error": "PIN ainda não configurado. Define o Secret ADMIN_PIN e reinicia o Repl.",
+                    "error": "PIN ainda não configurado.",
                 }
             ),
             503,

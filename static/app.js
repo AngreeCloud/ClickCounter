@@ -38,15 +38,22 @@ function setButtonsDisabled(disabled) {
   });
 }
 
-async function handleClick(buttonName) {
+async function handleClick(buttonId) {
   setButtonsDisabled(true);
   try {
     const record = await fetchJson("/api/click", {
       method: "POST",
-      body: JSON.stringify({ button: buttonName }),
+      body: JSON.stringify({ button_id: buttonId }),
     });
 
-    notifyClick(record);
+    // Mantendo a compatibilidade visual com o que já foi feito,
+    // mas garantindo que usamos a resposta do servidor
+    const displayRecord = {
+      button: `Botão ${record.button_id}`,
+      seq: record.seq,
+      time: record.time
+    };
+    notifyClick(displayRecord);
   } finally {
     setButtonsDisabled(false);
   }
@@ -55,11 +62,10 @@ async function handleClick(buttonName) {
 function wireUi() {
   document.querySelectorAll("button[data-button-id]").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      const buttonName = btn.innerText.trim();
+      const buttonId = parseInt(btn.getAttribute("data-button-id"));
       try {
-        await handleClick(buttonName);
+        await handleClick(buttonId);
       } catch (err) {
-        // Fallback para erro simples se a notificação UI falhar
         alert(err.message || "Erro ao registar clique.");
       }
     });
