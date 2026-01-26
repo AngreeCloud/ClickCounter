@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-PT">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ClickCounter · Admin</title>
+    <link rel="stylesheet" href="/static/admin.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="brandTitle">ClickCounter</div>
+        <div class="brandSub">Dashboard</div>
+      </div>
+
+      <div class="actions">
+        <a class="btn" href="/buttons">Abrir página dos botões</a>
+        <a class="btn" href="/admin/export.xlsx">Download Excel</a>
+        <button id="logoutBtn" class="btn btnGhost" type="button">Logout</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="cards">
+        <div class="card">
+          <div class="cardLabel">Total cliques</div>
+          <div id="totalAll" class="cardValue">—</div>
+        </div>
+        <div class="card">
+          <div class="cardLabel">Cliques hoje</div>
+          <div id="totalToday" class="cardValue">—</div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="panel">
+          <div class="panelHeader">Cliques por botão</div>
+          <canvas id="perButtonChart" height="160"></canvas>
+        </div>
+        <div class="panel">
+          <div class="panelHeader">Últimos 14 dias</div>
+          <canvas id="perDayChart" height="160"></canvas>
+        </div>
+        <div class="panel">
+          <div class="panelHeader">Cliques por hora (hoje)</div>
+          <canvas id="perHourChart" height="160"></canvas>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/admin.js"></script>
+  </body>
+</html>

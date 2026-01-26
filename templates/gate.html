@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-PT">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ClickCounter · PIN</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <!-- Fundo com botões (apenas visual) -->
+    <div class="grid grid-blurred" aria-hidden="true">
+      <div class="btn btn1" role="presentation">Botão 1</div>
+      <div class="btn btn2" role="presentation">Botão 2</div>
+      <div class="btn btn3" role="presentation">Botão 3</div>
+      <div class="btn btn4" role="presentation">Botão 4</div>
+    </div>
+
+    <!-- Modal PIN -->
+    <div class="modalBackdrop" role="dialog" aria-modal="true" aria-label="Autenticação por PIN">
+      <div class="modal">
+        <h1 class="modalTitle">Acesso restrito</h1>
+        <p class="modalSubtitle">Introduz o PIN para aceder à dashboard.</p>
+
+        <form id="pinForm" class="modalForm">
+          <label class="modalLabel" for="pinInput">PIN</label>
+          <input id="pinInput" class="modalInput" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="••••" />
+
+          <div id="pinError" class="modalError" hidden></div>
+
+          <button class="modalBtn" type="submit">Entrar</button>
+        </form>
+
+        <p class="modalHint">
+          Se for a primeira vez, define o Secret <span class="mono">ADMIN_PIN</span> no Replit.
+        </p>
+      </div>
+    </div>
+
+    <script src="/static/gate.js"></script>
+  </body>
+</html>
