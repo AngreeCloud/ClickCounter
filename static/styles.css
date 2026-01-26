@@ -214,3 +214,43 @@ body {
   transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
+/* Dev hint (PIN page) */
+.devHintBtn {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2000;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(10, 14, 25, 0.72);
+  backdrop-filter: blur(10px);
+  color: var(--text);
+  font-weight: 900;
+  border-radius: 999px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.devHintPanel {
+  position: fixed;
+  right: 16px;
+  bottom: 66px;
+  z-index: 2000;
+  width: min(320px, calc(100vw - 32px));
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(10, 14, 25, 0.86);
+  backdrop-filter: blur(12px);
+  border-radius: 14px;
+  padding: 12px 12px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+}
+
+.devHintTitle {
+  font-weight: 900;
+  margin-bottom: 6px;
+}
+
+.devHintText {
+  color: var(--muted);
+  line-height: 1.35;
+}
+

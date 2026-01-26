@@ -34,13 +34,13 @@ def init_db():
     create_click_sql = """
     CREATE TABLE IF NOT EXISTS click (
       id SERIAL PRIMARY KEY,
-      button_id INTEGER NOT NULL,
-      button TEXT NOT NULL,
-      seq INTEGER NOT NULL,
-      date DATE NOT NULL,
-      date_iso TEXT NOT NULL,
-      time TIME NOT NULL,
-      timestamp TIMESTAMPTZ NOT NULL
+      button_id INTEGER,
+      button TEXT,
+      seq INTEGER,
+      date DATE,
+      date_iso TEXT,
+      time TIME,
+      timestamp TIMESTAMPTZ
     );
     """
 
@@ -56,9 +56,38 @@ def init_db():
         with conn.cursor() as cur:
             cur.execute(create_click_sql)
             cur.execute(create_passwords_sql)
+            _migrate_click_schema(cur)
         conn.commit()
 
     _ensure_pin_seeded()
+
+
+def _migrate_click_schema(cur):
+    """Best-effort migration to support older schemas.
+
+    If a previous version created table `click` without some columns (ex: missing
+    button_id), we add them. We intentionally avoid NOT NULL constraints here to
+    keep older rows valid.
+    """
+
+    cur.execute("ALTER TABLE click ADD COLUMN IF NOT EXISTS button_id INTEGER;")
+    cur.execute("ALTER TABLE click ADD COLUMN IF NOT EXISTS button TEXT;")
+    cur.execute("ALTER TABLE click ADD COLUMN IF NOT EXISTS seq INTEGER;")
+    cur.execute("ALTER TABLE click ADD COLUMN IF NOT EXISTS date DATE;")
+    cur.execute("ALTER TABLE click ADD COLUMN IF NOT EXISTS date_iso TEXT;")
+    cur.execute("ALTER TABLE click ADD COLUMN IF NOT EXISTS time TIME;")
+    cur.execute("ALTER TABLE click ADD COLUMN IF NOT EXISTS timestamp TIMESTAMPTZ;")
+
+    # Backfill button_id from button text when possible (e.g. "Botão 1").
+    cur.execute(
+        """
+        UPDATE click
+        SET button_id = (regexp_match(button, '(\\d+)'))[1]::int
+        WHERE button_id IS NULL
+          AND button IS NOT NULL
+          AND regexp_match(button, '(\\d+)') IS NOT NULL;
+        """
+    )
 
 
 def _ensure_pin_seeded():
@@ -180,7 +209,8 @@ def api_click():
     now = datetime.now(timezone.utc).astimezone()
     today = now.date()
     date_iso = today.isoformat()
-    click_time = now.time().replace(second=0, microsecond=0)
+    click_time_str = now.strftime("%H:%M:%S")
+    timestamp_str = now.isoformat(timespec="seconds")
     button_label = f"Botão {button_id}"
 
     with get_db_conn() as conn:
@@ -188,7 +218,7 @@ def api_click():
         # Exclusive lock serializes increments for the day.
         with conn.cursor() as cur:
             cur.execute("LOCK TABLE click IN EXCLUSIVE MODE;")
-            cur.execute("SELECT COUNT(*) FROM click WHERE date = CURRENT_DATE;")
+            cur.execute("SELECT COUNT(*) FROM click WHERE date::date = CURRENT_DATE;")
             count_today = int(cur.fetchone()[0])
             seq = count_today + 1
 
@@ -201,10 +231,10 @@ def api_click():
                     button_id,
                     button_label,
                     seq,
-                    today,
                     date_iso,
-                    click_time,
-                    now,
+                    date_iso,
+                    click_time_str,
+                    timestamp_str,
                 ),
             )
 
@@ -215,10 +245,10 @@ def api_click():
             "button_id": button_id,
             "seq": seq,
             "date": date_iso,
-            "time": click_time.strftime("%H:%M"),
+            "time": click_time_str[:5],
             "button": button_label,
             "date_iso": date_iso,
-            "timestamp": now.isoformat(timespec="seconds"),
+            "timestamp": timestamp_str,
         }
     )
 
@@ -231,7 +261,7 @@ def api_admin_stats():
             cur.execute("SELECT COUNT(*) FROM click;")
             total = int(cur.fetchone()[0])
 
-            cur.execute("SELECT COUNT(*) FROM click WHERE date = CURRENT_DATE;")
+            cur.execute("SELECT COUNT(*) FROM click WHERE date::date = CURRENT_DATE;")
             total_today = int(cur.fetchone()[0])
 
             cur.execute(
@@ -242,11 +272,11 @@ def api_admin_stats():
 
             cur.execute(
                 """
-                SELECT date, COUNT(*)
+                SELECT date::date AS day, COUNT(*)
                 FROM click
-                WHERE date >= CURRENT_DATE - INTERVAL '13 days'
-                GROUP BY date
-                ORDER BY date;
+                WHERE date::date >= CURRENT_DATE - INTERVAL '13 days'
+                GROUP BY day
+                ORDER BY day;
                 """
             )
             per_day_rows = cur.fetchall()
@@ -254,9 +284,9 @@ def api_admin_stats():
 
             cur.execute(
                 """
-                SELECT EXTRACT(HOUR FROM time)::int AS hour, COUNT(*)
+                SELECT EXTRACT(HOUR FROM time::time)::int AS hour, COUNT(*)
                 FROM click
-                WHERE date = CURRENT_DATE
+                WHERE date::date = CURRENT_DATE
                 GROUP BY hour
                 ORDER BY hour;
                 """
@@ -286,9 +316,17 @@ def admin_export_xlsx():
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, button_id, button, seq, date, date_iso, time, timestamp
+                SELECT
+                  id,
+                  COALESCE(button_id, NULL) AS button_id,
+                  COALESCE(button, '') AS button,
+                  COALESCE(seq, NULL) AS seq,
+                  date::text AS date,
+                  COALESCE(date_iso, '') AS date_iso,
+                  time::text AS time,
+                  timestamp::text AS timestamp
                 FROM click
-                ORDER BY date DESC, time DESC, id DESC;
+                ORDER BY id DESC;
                 """
             )
             rows = cur.fetchall()
@@ -301,14 +339,14 @@ def admin_export_xlsx():
     for (cid, button_id, button_val, seq, date_val, date_iso, time_val, ts_val) in rows:
         ws.append(
             [
-                int(cid),
-                int(button_id),
-                str(button_val),
-                int(seq),
-                date_val.isoformat(),
-                str(date_iso),
-                time_val.strftime("%H:%M:%S"),
-                ts_val.isoformat(),
+                int(cid) if cid is not None else "",
+                int(button_id) if button_id is not None else "",
+                str(button_val) if button_val is not None else "",
+                int(seq) if seq is not None else "",
+                str(date_val) if date_val is not None else "",
+                str(date_iso) if date_iso is not None else "",
+                str(time_val) if time_val is not None else "",
+                str(ts_val) if ts_val is not None else "",
             ]
         )
 

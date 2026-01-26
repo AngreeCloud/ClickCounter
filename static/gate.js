@@ -24,6 +24,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("pinForm");
   const input = document.getElementById("pinInput");
 
+  const devHintBtn = document.getElementById("devHintBtn");
+  const devHintPanel = document.getElementById("devHintPanel");
+
   if (input) input.focus();
 
   if (!form) return;
@@ -42,4 +45,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.location.href = "/admin";
   });
+
+  const setHintOpen = (open) => {
+    if (!devHintPanel || !devHintBtn) return;
+    devHintPanel.hidden = !open;
+    devHintBtn.setAttribute("aria-expanded", String(open));
+  };
+
+  if (devHintBtn && devHintPanel) {
+    devHintBtn.addEventListener("click", () => {
+      setHintOpen(devHintPanel.hidden);
+    });
+
+    document.addEventListener("click", (e) => {
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      if (t === devHintBtn || devHintPanel.contains(t)) return;
+      setHintOpen(false);
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") setHintOpen(false);
+    });
+  }
 });
