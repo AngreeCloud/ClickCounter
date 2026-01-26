@@ -269,8 +269,8 @@ def api_click():
         with conn.cursor() as cur:
             cur.execute("LOCK TABLE click IN EXCLUSIVE MODE;")
             cur.execute(
-                f"SELECT COUNT(*) FROM click WHERE {DATE_MATCH_SQL};",
-                (date_iso, today, date_iso),
+                f"SELECT COUNT(*) FROM click WHERE button_id = %s AND {DATE_MATCH_SQL};",
+                (button_id, date_iso, today, date_iso),
             )
             count_today = int(cur.fetchone()[0])
             seq = count_today + 1
