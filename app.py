@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from functools import wraps
 from io import BytesIO
 
@@ -15,6 +15,56 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY") or os.urandom(32)
 
 ALLOWED_BUTTON_IDS = {1, 2, 3, 4}
+
+ISO_DATE_REGEX = "^[0-9]{4}-[0-9]{2}-[0-9]{2}"
+ISO_TIME_REGEX = "^[0-9]{2}:[0-9]{2}"
+
+DATE_MATCH_SQL = f"""
+(
+    (date_iso IS NOT NULL AND date_iso = %s)
+    OR (
+        date IS NOT NULL
+        AND (date::text) ~ '{ISO_DATE_REGEX}'
+        AND (date::date) = %s
+    )
+    OR (
+        timestamp IS NOT NULL
+        AND (timestamp::text) ~ '{ISO_DATE_REGEX}'
+        AND left(timestamp::text, 10) = %s
+    )
+)
+"""
+
+NORMALIZED_DATE_SQL = f"""
+    COALESCE(
+        NULLIF(date_iso, ''),
+        CASE
+            WHEN date IS NOT NULL AND (date::text) ~ '{ISO_DATE_REGEX}'
+                THEN to_char(date::date, 'YYYY-MM-DD')
+            ELSE NULL
+        END,
+        CASE
+            WHEN timestamp IS NOT NULL AND (timestamp::text) ~ '{ISO_DATE_REGEX}'
+                THEN left(timestamp::text, 10)
+            ELSE NULL
+        END
+    )
+"""
+
+NORMALIZED_HOUR_SQL = f"""
+    COALESCE(
+        CASE
+            WHEN time IS NOT NULL AND (time::text) ~ '{ISO_TIME_REGEX}'
+                THEN NULLIF(split_part(time::text, ':', 1), '')::int
+            ELSE NULL
+        END,
+        CASE
+            WHEN timestamp IS NOT NULL AND (timestamp::text) ~ '{ISO_DATE_REGEX}'
+                THEN NULLIF(substring(timestamp::text FROM '^[0-9]{4}-[0-9]{2}-[0-9]{2}.([0-9]{2})'), '')::int
+            ELSE NULL
+        END
+    )
+"""
 
 
 def get_db_conn():
@@ -218,7 +268,10 @@ def api_click():
         # Exclusive lock serializes increments for the day.
         with conn.cursor() as cur:
             cur.execute("LOCK TABLE click IN EXCLUSIVE MODE;")
-            cur.execute("SELECT COUNT(*) FROM click WHERE date::date = CURRENT_DATE;")
+            cur.execute(
+                f"SELECT COUNT(*) FROM click WHERE {DATE_MATCH_SQL};",
+                (date_iso, today, date_iso),
+            )
             count_today = int(cur.fetchone()[0])
             seq = count_today + 1
 
@@ -256,12 +309,18 @@ def api_click():
 @app.get("/api/admin/stats")
 @require_auth
 def api_admin_stats():
+    today = datetime.now(timezone.utc).astimezone().date()
+    lookback_start = today - timedelta(days=13)
+
     with get_db_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) FROM click;")
             total = int(cur.fetchone()[0])
 
-            cur.execute("SELECT COUNT(*) FROM click WHERE date::date = CURRENT_DATE;")
+            cur.execute(
+                f"SELECT COUNT(*) FROM click WHERE {DATE_MATCH_SQL};",
+                (today.isoformat(), today, today.isoformat()),
+            )
             total_today = int(cur.fetchone()[0])
 
             cur.execute(
@@ -271,25 +330,40 @@ def api_admin_stats():
             per_button = {int(b): int(c) for (b, c) in per_button_rows}
 
             cur.execute(
-                """
-                SELECT date::date AS day, COUNT(*)
-                FROM click
-                WHERE date::date >= CURRENT_DATE - INTERVAL '13 days'
+                f"""
+                WITH normalized AS (
+                    SELECT {NORMALIZED_DATE_SQL} AS day_iso
+                    FROM click
+                )
+                SELECT day_iso::date AS day, COUNT(*)
+                FROM normalized
+                WHERE day_iso IS NOT NULL
+                  AND day_iso::date >= %s
                 GROUP BY day
                 ORDER BY day;
-                """
+                """,
+                (lookback_start,),
             )
             per_day_rows = cur.fetchall()
             per_day = [{"date": d.isoformat(), "count": int(c)} for (d, c) in per_day_rows]
 
             cur.execute(
-                """
-                SELECT EXTRACT(HOUR FROM time::time)::int AS hour, COUNT(*)
-                FROM click
-                WHERE date::date = CURRENT_DATE
-                GROUP BY hour
-                ORDER BY hour;
-                """
+                f"""
+                WITH normalized AS (
+                    SELECT
+                        {NORMALIZED_DATE_SQL} AS day_iso,
+                        {NORMALIZED_HOUR_SQL} AS hour_val
+                    FROM click
+                )
+                SELECT hour_val, COUNT(*)
+                FROM normalized
+                WHERE day_iso IS NOT NULL
+                  AND day_iso::date = %s
+                  AND hour_val IS NOT NULL
+                GROUP BY hour_val
+                ORDER BY hour_val;
+                """,
+                (today,),
             )
             per_hour_rows = cur.fetchall()
             per_hour = [{"hour": int(h), "count": int(c)} for (h, c) in per_hour_rows]

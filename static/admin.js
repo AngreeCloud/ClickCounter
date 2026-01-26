@@ -1,17 +1,28 @@
 async function fetchJson(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Falha ao carregar stats");
-  return res.json();
+  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data && data.error ? data.error : "Falha ao carregar stats");
+    err.status = res.status;
+    err.payload = data;
+    throw err;
+  }
+  return data;
 }
 
 async function postJson(url, body) {
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body || {}),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data && data.error ? data.error : "Erro");
+  if (!res.ok) {
+    const err = new Error(data && data.error ? data.error : "Erro");
+    err.status = res.status;
+    err.payload = data;
+    throw err;
+  }
   return data;
 }
 
@@ -103,49 +114,62 @@ function buildPerHourChart(ctx, perHourToday) {
 }
 
 (async function init() {
-  const stats = await fetchJson("/api/admin/stats");
+  const logoutBtn = document.getElementById("logoutBtn");
+  const helpModal = document.getElementById("helpModal");
+  const helpBtn = document.getElementById("helpBtn");
+  const helpClose = document.getElementById("helpClose");
 
-  setText("totalAll", String(stats.total ?? "—"));
-  setText("totalToday", String(stats.today ?? "—"));
+  const setHelpOpen = (open) => {
+    if (!helpModal) return;
+    helpModal.hidden = !open;
+  };
+
+  if (helpBtn) {
+    helpBtn.addEventListener("click", () => setHelpOpen(true));
+  }
+  if (helpClose) helpClose.addEventListener("click", () => setHelpOpen(false));
+  if (helpModal) {
+    helpModal.addEventListener("click", (e) => {
+      if (e.target === helpModal) setHelpOpen(false);
+    });
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") setHelpOpen(false);
+  });
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", async () => {
+      logoutBtn.disabled = true;
+      try {
+        await postJson("/api/auth/logout");
+        window.location.href = "/";
+      } catch (err) {
+        alert(err.message || "Erro ao terminar sessão.");
+        logoutBtn.disabled = false;
+      }
+    });
+  }
+
+  let stats = null;
+  try {
+    stats = await fetchJson("/api/admin/stats");
+  } catch (err) {
+    console.error("Falha ao carregar estatísticas", err);
+    if (err && err.status === 401) {
+      window.location.href = "/";
+      return;
+    }
+  }
+
+  const safeStats = stats || { perButton: {}, perDay: [], perHourToday: [] };
+  setText("totalAll", stats && stats.total != null ? String(stats.total) : "—");
+  setText("totalToday", stats && stats.today != null ? String(stats.today) : "—");
 
   const perButtonCtx = document.getElementById("perButtonChart");
   const perDayCtx = document.getElementById("perDayChart");
   const perHourCtx = document.getElementById("perHourChart");
 
-  if (perButtonCtx) buildPerButtonChart(perButtonCtx, stats.perButton || {});
-  if (perDayCtx) buildPerDayChart(perDayCtx, stats.perDay || []);
-  if (perHourCtx) buildPerHourChart(perHourCtx, stats.perHourToday || []);
-
-  const logoutBtn = document.getElementById("logoutBtn");
-  if (logoutBtn) {
-    logoutBtn.addEventListener("click", async () => {
-      await postJson("/api/auth/logout");
-      window.location.href = "/";
-    });
-  }
-
-  const helpModal = document.getElementById("helpModal");
-  const helpBtn = document.getElementById("helpBtn");
-  const helpClose = document.getElementById("helpClose");
-
-  const closeHelp = () => {
-    if (helpModal) helpModal.hidden = true;
-  };
-
-  if (helpBtn) {
-    helpBtn.addEventListener("click", () => {
-      if (helpModal) helpModal.hidden = false;
-    });
-  }
-
-  if (helpClose) helpClose.addEventListener("click", closeHelp);
-  if (helpModal) {
-    helpModal.addEventListener("click", (e) => {
-      if (e.target === helpModal) closeHelp();
-    });
-  }
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeHelp();
-  });
+  if (perButtonCtx) buildPerButtonChart(perButtonCtx, safeStats.perButton || {});
+  if (perDayCtx) buildPerDayChart(perDayCtx, safeStats.perDay || []);
+  if (perHourCtx) buildPerHourChart(perHourCtx, safeStats.perHourToday || []);
 })();
