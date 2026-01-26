@@ -4,3 +4,5 @@ psycopg2-binary
 openpyxl
 flask-sqlalchemy
 psycopg2-binary
+openpyxl
+werkzeug
