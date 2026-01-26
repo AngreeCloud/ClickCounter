@@ -1,71 +1,57 @@
-async function fetchJson(url, options) {
-  const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const msg = data && data.error ? data.error : "Erro inesperado.";
-    throw new Error(msg);
-  }
-  return data;
-}
-
-function notifyClick(record) {
-  const container = document.getElementById("notifications");
-  if (!container) return;
-
-  const toast = document.createElement("div");
-  toast.className = "toast";
-  toast.innerHTML = `
-    <strong>Clique registado (Botão ${record.button})</strong><br>
-    <small>Seq: ${record.seq} | Hora: ${record.time}</small>
-  `;
-
-  container.appendChild(toast);
-
-  // Remover após 3 segundos
-  setTimeout(() => {
-    toast.classList.add("fade-out");
-    setTimeout(() => toast.remove(), 400);
-  }, 3000);
-}
-
 function setButtonsDisabled(disabled) {
-  document.querySelectorAll("button[data-button-id]").forEach((btn) => {
-    btn.disabled = disabled;
-  });
+	document.querySelectorAll("button[data-button-id]").forEach((btn) => {
+		btn.disabled = disabled;
+	});
 }
 
-async function handleClick(buttonName) {
-  setButtonsDisabled(true);
-  try {
-    const record = await fetchJson("/api/click", {
-      method: "POST",
-      body: JSON.stringify({ button: buttonName }),
-    });
+function showToast(message) {
+	const box = document.getElementById("notifications");
+	if (!box) return;
 
-    notifyClick(record);
-  } finally {
-    setButtonsDisabled(false);
-  }
+	const el = document.createElement("div");
+	el.className = "toast";
+	el.textContent = message;
+	box.appendChild(el);
+
+	setTimeout(() => {
+		el.classList.add("fade-out");
+		setTimeout(() => el.remove(), 400);
+	}, 1500);
+}
+
+async function handleClick(buttonId) {
+	setButtonsDisabled(true);
+	try {
+		const res = await fetch("/api/click", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ button_id: buttonId }),
+		});
+		const data = await res.json().catch(() => ({}));
+		if (!res.ok) {
+			throw new Error(data && data.error ? data.error : "Erro ao registar.");
+		}
+
+		showToast(`#${data.seq} · Botão ${data.button_id} · ${data.date} ${data.time}`);
+	} finally {
+		setButtonsDisabled(false);
+	}
 }
 
 function wireUi() {
-  document.querySelectorAll("button[data-button-id]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const buttonName = btn.innerText.trim();
-      try {
-        await handleClick(buttonName);
-      } catch (err) {
-        // Fallback para erro simples se a notificação UI falhar
-        alert(err.message || "Erro ao registar clique.");
-      }
-    });
-  });
+	document.querySelectorAll("button[data-button-id]").forEach((btn) => {
+		btn.addEventListener("click", async () => {
+			const idRaw = btn.getAttribute("data-button-id");
+			const buttonId = Number(idRaw);
+			if (!Number.isInteger(buttonId) || buttonId < 1) return;
+
+			try {
+				await handleClick(buttonId);
+			} catch (err) {
+				alert(err.message || "Erro ao registar clique.");
+			}
+		});
+	});
 }
 
-(async function init() {
-  wireUi();
-})();
+wireUi();

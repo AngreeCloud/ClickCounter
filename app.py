@@ -31,13 +31,16 @@ def get_db_conn():
 
 
 def init_db():
-    create_clicks_sql = """
-    CREATE TABLE IF NOT EXISTS clicks (
+    create_click_sql = """
+    CREATE TABLE IF NOT EXISTS click (
       id SERIAL PRIMARY KEY,
       button_id INTEGER NOT NULL,
+      button TEXT NOT NULL,
       seq INTEGER NOT NULL,
       date DATE NOT NULL,
-      time TIME NOT NULL
+      date_iso TEXT NOT NULL,
+      time TIME NOT NULL,
+      timestamp TIMESTAMPTZ NOT NULL
     );
     """
 
@@ -51,7 +54,7 @@ def init_db():
 
     with get_db_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute(create_clicks_sql)
+            cur.execute(create_click_sql)
             cur.execute(create_passwords_sql)
         conn.commit()
 
@@ -176,23 +179,33 @@ def api_click():
 
     now = datetime.now(timezone.utc).astimezone()
     today = now.date()
+    date_iso = today.isoformat()
     click_time = now.time().replace(second=0, microsecond=0)
+    button_label = f"Botão {button_id}"
 
     with get_db_conn() as conn:
         # Ensure seq is consistent under concurrent clicks.
         # Exclusive lock serializes increments for the day.
         with conn.cursor() as cur:
-            cur.execute("LOCK TABLE clicks IN EXCLUSIVE MODE;")
-            cur.execute("SELECT COUNT(*) FROM clicks WHERE date = CURRENT_DATE;")
+            cur.execute("LOCK TABLE click IN EXCLUSIVE MODE;")
+            cur.execute("SELECT COUNT(*) FROM click WHERE date = CURRENT_DATE;")
             count_today = int(cur.fetchone()[0])
             seq = count_today + 1
 
             cur.execute(
                 """
-                INSERT INTO clicks (button_id, seq, date, time)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO click (button_id, button, seq, date, date_iso, time, timestamp)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
-                (button_id, seq, today, click_time),
+                (
+                    button_id,
+                    button_label,
+                    seq,
+                    today,
+                    date_iso,
+                    click_time,
+                    now,
+                ),
             )
 
         conn.commit()
@@ -201,8 +214,11 @@ def api_click():
         {
             "button_id": button_id,
             "seq": seq,
-            "date": today.isoformat(),
+            "date": date_iso,
             "time": click_time.strftime("%H:%M"),
+            "button": button_label,
+            "date_iso": date_iso,
+            "timestamp": now.isoformat(timespec="seconds"),
         }
     )
 
@@ -212,14 +228,14 @@ def api_click():
 def api_admin_stats():
     with get_db_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM clicks;")
+            cur.execute("SELECT COUNT(*) FROM click;")
             total = int(cur.fetchone()[0])
 
-            cur.execute("SELECT COUNT(*) FROM clicks WHERE date = CURRENT_DATE;")
+            cur.execute("SELECT COUNT(*) FROM click WHERE date = CURRENT_DATE;")
             total_today = int(cur.fetchone()[0])
 
             cur.execute(
-                "SELECT button_id, COUNT(*) FROM clicks GROUP BY button_id ORDER BY button_id;"
+                "SELECT button_id, COUNT(*) FROM click GROUP BY button_id ORDER BY button_id;"
             )
             per_button_rows = cur.fetchall()
             per_button = {int(b): int(c) for (b, c) in per_button_rows}
@@ -227,7 +243,7 @@ def api_admin_stats():
             cur.execute(
                 """
                 SELECT date, COUNT(*)
-                FROM clicks
+                FROM click
                 WHERE date >= CURRENT_DATE - INTERVAL '13 days'
                 GROUP BY date
                 ORDER BY date;
@@ -239,7 +255,7 @@ def api_admin_stats():
             cur.execute(
                 """
                 SELECT EXTRACT(HOUR FROM time)::int AS hour, COUNT(*)
-                FROM clicks
+                FROM click
                 WHERE date = CURRENT_DATE
                 GROUP BY hour
                 ORDER BY hour;
@@ -270,8 +286,8 @@ def admin_export_xlsx():
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, button_id, seq, date, time
-                FROM clicks
+                SELECT id, button_id, button, seq, date, date_iso, time, timestamp
+                FROM click
                 ORDER BY date DESC, time DESC, id DESC;
                 """
             )
@@ -279,17 +295,20 @@ def admin_export_xlsx():
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "clicks"
+    ws.title = "click"
 
-    ws.append(["id", "button_id", "seq", "date", "time"])
-    for (cid, button_id, seq, date_val, time_val) in rows:
+    ws.append(["id", "button_id", "button", "seq", "date", "date_iso", "time", "timestamp"])
+    for (cid, button_id, button_val, seq, date_val, date_iso, time_val, ts_val) in rows:
         ws.append(
             [
                 int(cid),
                 int(button_id),
+                str(button_val),
                 int(seq),
                 date_val.isoformat(),
+                str(date_iso),
                 time_val.strftime("%H:%M:%S"),
+                ts_val.isoformat(),
             ]
         )
 

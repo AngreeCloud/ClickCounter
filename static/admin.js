@@ -123,4 +123,25 @@ function buildPerHourChart(ctx, perHourToday) {
       window.location.href = "/";
     });
   }
+
+  const helpModal = document.getElementById("helpModal");
+  const helpBtn = document.getElementById("helpBtn");
+  const helpClose = document.getElementById("helpClose");
+
+  const closeHelp = () => {
+    if (helpModal) helpModal.hidden = true;
+  };
+
+  if (helpBtn) {
+    helpBtn.addEventListener("click", () => {
+      if (helpModal) helpModal.hidden = false;
+    });
+  }
+
+  if (helpClose) helpClose.addEventListener("click", closeHelp);
+  if (helpModal) {
+    helpModal.addEventListener("click", (e) => {
+      if (e.target === helpModal) closeHelp();
+    });
+  }
 })();

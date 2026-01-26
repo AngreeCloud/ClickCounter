@@ -60,6 +60,59 @@ body {
   background: transparent;
 }
 
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 18px;
+  z-index: 10;
+}
+
+.modal {
+  width: 100%;
+  max-width: 720px;
+  border: 1px solid var(--border);
+  background: rgba(10, 14, 25, 0.9);
+  border-radius: 16px;
+  padding: 16px;
+  backdrop-filter: blur(12px);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.modalBody {
+  max-height: 60vh;
+  overflow: auto;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.helpList {
+  padding-left: 18px;
+  margin: 0 0 12px;
+}
+
+.helpList li { margin-bottom: 8px; }
+
+.signature {
+  margin-top: 14px;
+  color: var(--text);
+}
+
 .container {
   max-width: 1100px;
   margin: 0 auto;
