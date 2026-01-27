@@ -36,3 +36,6 @@ externalPort = 80
 [deployment]
 deploymentTarget = "autoscale"
 run = ["python", "app.py"]
+
+[objectStorage]
+defaultBucketID = "replit-objstore-207343b0-5890-460b-a80b-d4cb7dc80855"
