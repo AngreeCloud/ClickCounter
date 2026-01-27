@@ -94,7 +94,7 @@ def init_db():
       button_id INTEGER,
       button TEXT,
       seq INTEGER,
-      date DATE,
+      date TEXT,
       date_iso TEXT,
       time TIME,
       timestamp TIMESTAMPTZ
@@ -143,7 +143,7 @@ def _migrate_click_schema(cur):
     cur.execute("ALTER TABLE click ADD COLUMN IF NOT EXISTS button_id INTEGER;")
     cur.execute("ALTER TABLE click ADD COLUMN IF NOT EXISTS button TEXT;")
     cur.execute("ALTER TABLE click ADD COLUMN IF NOT EXISTS seq INTEGER;")
-    cur.execute("ALTER TABLE click ADD COLUMN IF NOT EXISTS date DATE;")
+    cur.execute("ALTER TABLE click ALTER COLUMN date TYPE TEXT;")
     cur.execute("ALTER TABLE click ADD COLUMN IF NOT EXISTS date_iso TEXT;")
     cur.execute("ALTER TABLE click ADD COLUMN IF NOT EXISTS time TIME;")
     cur.execute("ALTER TABLE click ADD COLUMN IF NOT EXISTS timestamp TIMESTAMPTZ;")
@@ -361,6 +361,8 @@ def api_click():
             count_today = int(cur.fetchone()[0])
             seq = count_today + 1
 
+            date_display = today.strftime("%d/%m/%Y")
+
             cur.execute(
                 """
                 INSERT INTO click (button_id, button, seq, date, date_iso, time, timestamp)
@@ -370,7 +372,7 @@ def api_click():
                     button_id,
                     button_label,
                     seq,
-                    date_iso,
+                    date_display,
                     date_iso,
                     click_time_str,
                     timestamp_str,
@@ -383,7 +385,7 @@ def api_click():
         {
             "button_id": button_id,
             "seq": seq,
-            "date": date_iso,
+            "date": date_display,
             "time": click_time_str[:5],
             "button": button_label,
             "date_iso": date_iso,
