@@ -238,6 +238,15 @@ def _build_icon_key(button_id, ext):
     return f"{OBJECT_STORAGE_BUCKET}/button-{button_id}.{safe_ext}"
 
 
+def _delete_object_storage_key(client, key):
+    """Best-effort delete for different object storage client APIs."""
+    for method_name in ("delete", "delete_object", "delete_key", "remove"):
+        method = getattr(client, method_name, None)
+        if callable(method):
+            return method(key)
+    raise RuntimeError("Object Storage client não suporta delete().")
+
+
 def _get_current_pin_hash():
     with get_db_conn() as conn:
         with conn.cursor() as cur:
@@ -522,6 +531,48 @@ def api_buttons_icon_get(button_id):
         return jsonify({"error": f"Falha ao ler do Object Storage: {e}"}), 500
 
     return send_file(BytesIO(data), mimetype=icon_mime or "application/octet-stream")
+
+
+@app.post("/api/buttons/icon/<int:button_id>/delete")
+@require_auth
+def api_buttons_icon_delete(button_id):
+    if button_id not in ALLOWED_BUTTON_IDS:
+        return jsonify({"error": "button_id inválido."}), 400
+
+    with get_db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT icon_key FROM button_config WHERE button_id = %s;",
+                (button_id,),
+            )
+            row = cur.fetchone()
+            icon_key = row[0] if row else None
+
+    warning = None
+    if icon_key:
+        try:
+            client = _get_object_storage_client()
+            _delete_object_storage_key(client, icon_key)
+        except Exception as e:
+            # Ainda assim limpamos a configuração para o UI deixar de mostrar o ícone.
+            warning = str(e)
+
+    with get_db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE button_config
+                SET icon_key = NULL, icon_mime = NULL, icon_updated_at = NULL
+                WHERE button_id = %s;
+                """,
+                (button_id,),
+            )
+        conn.commit()
+
+    payload = {"ok": True, "button_id": button_id}
+    if warning:
+        payload["warning"] = warning
+    return jsonify(payload)
 
 
 @app.get("/api/admin/stats")

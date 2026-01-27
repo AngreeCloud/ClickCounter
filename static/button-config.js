@@ -43,6 +43,21 @@ async function uploadIcon(buttonId, file) {
   return data;
 }
 
+async function removeIcon(buttonId) {
+  const res = await fetch(`/api/buttons/icon/${buttonId}/delete`, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data && data.error ? data.error : "Erro ao remover ícone");
+    err.status = res.status;
+    err.payload = data;
+    throw err;
+  }
+  return data;
+}
+
 function createCard(button) {
   const card = document.createElement("div");
   card.className = "configCard";
@@ -60,11 +75,18 @@ function createCard(button) {
   previewLabel.className = "configPreviewLabel";
   previewLabel.textContent = button.label || `Botão ${button.button_id}`;
 
-  if (button.icon_url) {
-    previewIcon.src = `${button.icon_url}?v=${button.icon_updated_at || Date.now()}`;
-  } else {
-    previewIcon.src = "";
-  }
+  let hasIcon = Boolean(button.icon_url);
+  const setPreviewIcon = (on) => {
+    if (on) {
+      previewIcon.style.display = "";
+      previewIcon.src = `${button.icon_url || `/api/buttons/icon/${button.button_id}`}?v=${button.icon_updated_at || Date.now()}`;
+    } else {
+      previewIcon.src = "";
+      previewIcon.style.display = "none";
+    }
+  };
+
+  setPreviewIcon(hasIcon);
 
   preview.appendChild(previewIcon);
   preview.appendChild(previewLabel);
@@ -107,12 +129,18 @@ function createCard(button) {
   iconBtn.className = "btn btnGhost";
   iconBtn.textContent = "Enviar ícone";
 
+  const removeBtn = document.createElement("button");
+  removeBtn.className = "btn btnGhost";
+  removeBtn.textContent = "Remover ícone";
+  removeBtn.disabled = !hasIcon;
+
   const status = document.createElement("div");
   status.className = "noteText";
   status.textContent = "";
 
   actions.appendChild(saveBtn);
   actions.appendChild(iconBtn);
+  actions.appendChild(removeBtn);
   actions.appendChild(status);
 
   card.appendChild(preview);
@@ -144,13 +172,39 @@ function createCard(button) {
     status.textContent = "A enviar...";
     try {
       await uploadIcon(button.button_id, iconInput.files[0]);
-      previewIcon.src = `/api/buttons/icon/${button.button_id}?v=${Date.now()}`;
+      button.icon_url = `/api/buttons/icon/${button.button_id}`;
+      button.icon_updated_at = Date.now();
+      hasIcon = true;
+      setPreviewIcon(true);
+      removeBtn.disabled = false;
       status.textContent = "Ícone enviado.";
     } catch (err) {
       alert(err.message || "Erro ao enviar ícone.");
       status.textContent = "";
     } finally {
       iconBtn.disabled = false;
+    }
+  });
+
+  removeBtn.addEventListener("click", async () => {
+    if (!hasIcon) return;
+    const ok = confirm("Remover o ícone deste botão?");
+    if (!ok) return;
+
+    removeBtn.disabled = true;
+    status.textContent = "A remover...";
+    try {
+      await removeIcon(button.button_id);
+      hasIcon = false;
+      button.icon_url = null;
+      button.icon_updated_at = null;
+      setPreviewIcon(false);
+      iconInput.value = "";
+      status.textContent = "Ícone removido.";
+    } catch (err) {
+      alert(err.message || "Erro ao remover ícone.");
+      status.textContent = "";
+      removeBtn.disabled = !hasIcon;
     }
   });
 
