@@ -6,3 +6,4 @@ flask-sqlalchemy
 psycopg2-binary
 openpyxl
 werkzeug
+replit-object-storage
