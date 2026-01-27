@@ -17,8 +17,8 @@ https://click-counter--miguelpedrosa21.replit.app/
   - Totais globais e totais do dia.
   - Gráficos (por botão, últimos 14 dias, por hora no dia atual).
   - Botão Help com popup de ajuda.
-	- Configurar botões: alterar nomes e carregar ícones (ícone + label no ecrã de botões).
-- Exportação para Excel (`.xlsx`) com os dados da tabela.
+  - Configurar botões: alterar nomes e carregar ícones (ícone + label no ecrã de botões).
+  - Exportação para Excel (`.xlsx`) com os dados da tabela.
 
 ## Tecnologias
 - Backend: Python + Flask
