@@ -31,8 +31,13 @@ function setText(id, text) {
   if (el) el.textContent = text;
 }
 
-function buildPerButtonChart(ctx, perButton) {
-  const labels = ["Botão 1", "Botão 2", "Botão 3", "Botão 4"];
+function buildPerButtonChart(ctx, perButton, buttonLabels) {
+  const labels = [
+    buttonLabels[1] || "Botão 1",
+    buttonLabels[2] || "Botão 2",
+    buttonLabels[3] || "Botão 3",
+    buttonLabels[4] || "Botão 4",
+  ];
   const data = [perButton[1] || 0, perButton[2] || 0, perButton[3] || 0, perButton[4] || 0];
 
   return new Chart(ctx, {
@@ -169,7 +174,8 @@ function buildPerHourChart(ctx, perHourToday) {
   const perDayCtx = document.getElementById("perDayChart");
   const perHourCtx = document.getElementById("perHourChart");
 
-  if (perButtonCtx) buildPerButtonChart(perButtonCtx, safeStats.perButton || {});
+  const buttonLabels = (stats && stats.buttonLabels) || {};
+  if (perButtonCtx) buildPerButtonChart(perButtonCtx, safeStats.perButton || {}, buttonLabels);
   if (perDayCtx) buildPerDayChart(perDayCtx, safeStats.perDay || []);
   if (perHourCtx) buildPerHourChart(perHourCtx, safeStats.perHourToday || []);
 })();

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-PT">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ClickCounter · Configurar Botões</title>
+    <link rel="stylesheet" href="/static/admin.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="brandTitle">ClickCounter</div>
+        <div class="brandSub">Configurar botões</div>
+      </div>
+
+      <div class="actions">
+        <a class="btn" href="/admin">Voltar à dashboard</a>
+        <a class="btn" href="/buttons">Abrir página dos botões</a>
+      </div>
+    </header>
+
+    <main class="container">
+      <section>
+        <h2 class="modalTitle">Personalizar botões</h2>
+        <p class="noteText">Altera o nome e envia um ícone. O ícone aparece acima e o nome abaixo no ecrã de botões.</p>
+      </section>
+
+      <section id="configGrid" class="configGrid" aria-live="polite"></section>
+    </main>
+
+    <script src="/static/button-config.js"></script>
+  </body>
+</html>

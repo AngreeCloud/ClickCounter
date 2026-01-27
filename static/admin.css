@@ -160,6 +160,79 @@ body {
   margin-bottom: 10px;
 }
 
+.configGrid {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.configCard {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 14px;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.configRow {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.configPreview {
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  min-height: 140px;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  padding: 10px;
+  text-align: center;
+}
+
+.configPreview img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
+.configPreviewLabel {
+  font-weight: 900;
+}
+
+.inputText {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.fileInput {
+  width: 100%;
+  color: var(--muted);
+}
+
+.configActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.noteText {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .configRow { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 860px) {
   .grid { grid-template-columns: 1fr; }
   .cards { grid-template-columns: 1fr; }

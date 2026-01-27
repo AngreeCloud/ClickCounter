@@ -46,6 +46,27 @@ body {
   transition: filter 120ms ease, transform 120ms ease;
 }
 
+.btnContent {
+  height: 100%;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  padding: 24px 10px;
+  text-align: center;
+}
+
+.btnIcon {
+  width: clamp(44px, 8vw, 96px);
+  height: clamp(44px, 8vw, 96px);
+  object-fit: contain;
+}
+
+.btnLabel {
+  font-size: clamp(20px, 4vw, 42px);
+  font-weight: 900;
+}
+
 /* PIN Modal */
 .modalBackdrop {
   position: fixed;

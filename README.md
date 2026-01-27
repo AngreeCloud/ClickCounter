@@ -17,6 +17,7 @@ https://click-counter--miguelpedrosa21.replit.app/
   - Totais globais e totais do dia.
   - Gráficos (por botão, últimos 14 dias, por hora no dia atual).
   - Botão Help com popup de ajuda.
+	- Configurar botões: alterar nomes e carregar ícones (ícone + label no ecrã de botões).
 - Exportação para Excel (`.xlsx`) com os dados da tabela.
 
 ## Tecnologias
@@ -30,11 +31,13 @@ https://click-counter--miguelpedrosa21.replit.app/
 - [app.py](app.py) — servidor Flask, autenticação, API, acesso PostgreSQL e export Excel
 - [templates/gate.html](templates/gate.html) — ecrã de PIN (login)
 - [templates/admin.html](templates/admin.html) — dashboard de administração
+- [templates/button-config.html](templates/button-config.html) — configurar botões (nomes + ícones)
 - [templates/buttons.html](templates/buttons.html) — página dos botões (ecrã inteiro)
 - [static/styles.css](static/styles.css) — estilos (botões, PIN, toasts)
 - [static/gate.js](static/gate.js) — login por PIN + dica de desenvolvimento
 - [static/app.js](static/app.js) — envio de cliques para o backend
 - [static/admin.js](static/admin.js) / [static/admin.css](static/admin.css) — dashboard (charts + help + logout)
+- [static/button-config.js](static/button-config.js) — UI de configuração de botões
 
 ## Modelo de dados (PostgreSQL)
 Tabela principal: `click`
@@ -49,10 +52,15 @@ Campos usados:
 Tabela de autenticação:
 - `passwords` — guarda o hash do PIN (seed inicial via `ADMIN_PIN`)
 
+Tabela de configuração dos botões:
+- `button_config` — guarda nomes e metadados do ícone (label, icon_key, icon_mime, icon_updated_at)
+  - Os ficheiros de ícone são guardados no Replit Object Storage (bucket `BtnIcons`).
+
 ## Endpoints
 Páginas:
 - `GET /` — login (PIN)
 - `GET /admin` — dashboard (requer sessão)
+- `GET /admin/buttons` — configurar botões (requer sessão)
 - `GET /buttons` — página dos botões (requer sessão)
 
 API:
@@ -60,6 +68,10 @@ API:
 - `POST /api/auth/logout` — termina sessão
 - `POST /api/click` — regista clique (`{"button_id": 1}`) e devolve `{button_id, seq, date, time, ...}`
 - `GET /api/admin/stats` — estatísticas para os gráficos
+- `GET /api/buttons/config` — lista nomes/ícones dos botões
+- `POST /api/buttons/config` — atualiza o nome de um botão
+- `POST /api/buttons/icon/<id>` — upload de ícone para o botão
+- `GET /api/buttons/icon/<id>` — obtém o ícone do botão
 
 Export:
 - `GET /admin/export.xlsx` — descarrega `.xlsx`
@@ -71,6 +83,7 @@ Export:
 	- `DATABASE_URL` — ligação PostgreSQL (Replit Development Database)
 	- `ADMIN_PIN` — PIN inicial (é guardado como hash na tabela `passwords`)
 	- `FLASK_SECRET_KEY` — recomendado para sessão estável (string longa e aleatória)
+	- `REPLIT_DB_URL` não é usado (Object Storage usa credenciais do ambiente)
 	- opcional: `PGSSLMODE` — por omissão é usado `require`
 4. Faz Run.
 

@@ -16,6 +16,7 @@
 
       <div class="actions">
         <button id="helpBtn" class="btn btnGhost" type="button">Help</button>
+        <a class="btn" href="/admin/buttons">Configurar botões</a>
         <a class="btn" href="/buttons">Abrir página dos botões</a>
         <a class="btn" href="/admin/export.xlsx">Download Excel</a>
         <button id="logoutBtn" class="btn btnGhost" type="button">Logout</button>
@@ -62,6 +63,8 @@
             <li>Autentica com o PIN (Secret ADMIN_PIN). Sessão mantém-se até logout.</li>
             <li>Dashboard mostra totais, hoje, e gráficos: por botão, por dia (14 dias) e por hora (hoje).</li>
             <li>Para abrir os botões, clica “Abrir página dos botões”. Cada clique grava em <strong>click</strong> os campos: id, button_id, button, seq, date, date_iso, time, timestamp.</li>
+            <li>Em “Configurar botões” podes alterar o nome e carregar ícones. Os nomes ficam guardados na tabela <strong>button_config</strong> e passam a aparecer no campo <strong>button</strong> dos registos.</li>
+            <li>Os ícones são guardados no Replit Object Storage (bucket <strong>BtnIcons</strong>).</li>
             <li>O seq é diário: conta registos com date = hoje e soma 1. No dia seguinte volta a 1.</li>
             <li>Download Excel gera .xlsx com todas as colunas da tabela click.</li>
             <li>Para terminar a sessão, usa Logout.</li>

@@ -4,6 +4,18 @@ function setButtonsDisabled(disabled) {
 	});
 }
 
+async function fetchJson(url) {
+	const res = await fetch(url, { headers: { Accept: "application/json" } });
+	const data = await res.json().catch(() => ({}));
+	if (!res.ok) {
+		const err = new Error(data && data.error ? data.error : "Erro ao carregar");
+		err.status = res.status;
+		err.payload = data;
+		throw err;
+	}
+	return data;
+}
+
 function showToast(message) {
 	const box = document.getElementById("notifications");
 	if (!box) return;
@@ -19,7 +31,7 @@ function showToast(message) {
 	}, 1500);
 }
 
-async function handleClick(buttonId) {
+async function handleClick(buttonId, buttonLabel) {
 	setButtonsDisabled(true);
 	try {
 		const res = await fetch("/api/click", {
@@ -32,26 +44,67 @@ async function handleClick(buttonId) {
 			throw new Error(data && data.error ? data.error : "Erro ao registar.");
 		}
 
-		showToast(`#${data.seq} · Botão ${data.button_id} · ${data.date} ${data.time}`);
+		const label = data.button || buttonLabel || `Botão ${data.button_id}`;
+		showToast(`#${data.seq} · ${label} · ${data.date} ${data.time}`);
 	} finally {
 		setButtonsDisabled(false);
 	}
 }
 
-function wireUi() {
-	document.querySelectorAll("button[data-button-id]").forEach((btn) => {
-		btn.addEventListener("click", async () => {
-			const idRaw = btn.getAttribute("data-button-id");
-			const buttonId = Number(idRaw);
+function renderButtons(buttons) {
+	const grid = document.getElementById("buttonGrid");
+	if (!grid) return;
+	grid.innerHTML = "";
+
+	buttons.forEach((btn) => {
+		const buttonEl = document.createElement("button");
+		buttonEl.className = `btn btn${btn.button_id}`;
+		buttonEl.type = "button";
+		buttonEl.setAttribute("data-button-id", String(btn.button_id));
+
+		const content = document.createElement("div");
+		content.className = "btnContent";
+
+		const icon = document.createElement("img");
+		icon.className = "btnIcon";
+		icon.alt = "";
+		if (btn.icon_url) {
+			icon.src = `${btn.icon_url}?v=${btn.icon_updated_at || Date.now()}`;
+		} else {
+			icon.src = "";
+			icon.style.display = "none";
+		}
+
+		const label = document.createElement("div");
+		label.className = "btnLabel";
+		label.textContent = btn.label || `Botão ${btn.button_id}`;
+
+		content.appendChild(icon);
+		content.appendChild(label);
+		buttonEl.appendChild(content);
+
+		buttonEl.addEventListener("click", async () => {
+			const buttonId = Number(btn.button_id);
 			if (!Number.isInteger(buttonId) || buttonId < 1) return;
 
 			try {
-				await handleClick(buttonId);
+				await handleClick(buttonId, btn.label);
 			} catch (err) {
 				alert(err.message || "Erro ao registar clique.");
 			}
 		});
+
+		grid.appendChild(buttonEl);
 	});
+}
+
+async function wireUi() {
+	try {
+		const data = await fetchJson("/api/buttons/config");
+		renderButtons(data.buttons || []);
+	} catch (err) {
+		alert(err.message || "Erro ao carregar botões.");
+	}
 }
 
 wireUi();

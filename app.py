@@ -9,12 +9,19 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from openpyxl import Workbook
 
+try:
+    from replit.object_storage import Client as ObjectStorageClient
+except Exception:  # pragma: no cover - optional dependency in non-Replit envs
+    ObjectStorageClient = None
+
 app = Flask(__name__)
 
 # Session cookie signing
 app.secret_key = os.getenv("FLASK_SECRET_KEY") or os.urandom(32)
 
 ALLOWED_BUTTON_IDS = {1, 2, 3, 4}
+OBJECT_STORAGE_BUCKET = "BtnIcons"
+MAX_ICON_BYTES = 2 * 1024 * 1024
 
 ISO_DATE_REGEX = "^[0-9]{4}-[0-9]{2}-[0-9]{2}"
 ISO_TIME_REGEX = "^[0-9]{2}:[0-9]{2}"
@@ -102,14 +109,27 @@ def init_db():
     );
     """
 
+    create_button_config_sql = """
+    CREATE TABLE IF NOT EXISTS button_config (
+      button_id INTEGER PRIMARY KEY,
+      label TEXT NOT NULL,
+      icon_key TEXT,
+      icon_mime TEXT,
+      icon_updated_at TIMESTAMPTZ
+    );
+    """
+
     with get_db_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(create_click_sql)
             cur.execute(create_passwords_sql)
+            cur.execute(create_button_config_sql)
             _migrate_click_schema(cur)
+            _migrate_button_config(cur)
         conn.commit()
 
     _ensure_pin_seeded()
+    _ensure_button_config_seeded()
 
 
 def _migrate_click_schema(cur):
@@ -140,6 +160,12 @@ def _migrate_click_schema(cur):
     )
 
 
+def _migrate_button_config(cur):
+    cur.execute("ALTER TABLE button_config ADD COLUMN IF NOT EXISTS icon_key TEXT;")
+    cur.execute("ALTER TABLE button_config ADD COLUMN IF NOT EXISTS icon_mime TEXT;")
+    cur.execute("ALTER TABLE button_config ADD COLUMN IF NOT EXISTS icon_updated_at TIMESTAMPTZ;")
+
+
 def _ensure_pin_seeded():
     """Seed initial PIN from env ADMIN_PIN if passwords table is empty."""
     admin_pin = os.getenv("ADMIN_PIN")
@@ -156,6 +182,60 @@ def _ensure_pin_seeded():
                     (generate_password_hash(admin_pin),),
                 )
         conn.commit()
+
+
+def _ensure_button_config_seeded():
+    with get_db_conn() as conn:
+        with conn.cursor() as cur:
+            for bid in sorted(ALLOWED_BUTTON_IDS):
+                cur.execute("SELECT 1 FROM button_config WHERE button_id = %s;", (bid,))
+                if cur.fetchone() is None:
+                    cur.execute(
+                        "INSERT INTO button_config (button_id, label) VALUES (%s, %s);",
+                        (bid, f"Botão {bid}"),
+                    )
+        conn.commit()
+
+
+def _get_button_config_map():
+    with get_db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT button_id, label, icon_key, icon_mime, icon_updated_at
+                FROM button_config
+                ORDER BY button_id;
+                """
+            )
+            rows = cur.fetchall()
+    config = {}
+    for (bid, label, icon_key, icon_mime, icon_updated_at) in rows:
+        config[int(bid)] = {
+            "label": label,
+            "icon_key": icon_key,
+            "icon_mime": icon_mime,
+            "icon_updated_at": icon_updated_at,
+        }
+    return config
+
+
+def _get_button_label(button_id):
+    with get_db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT label FROM button_config WHERE button_id = %s;", (button_id,))
+            row = cur.fetchone()
+            return row[0] if row else f"Botão {button_id}"
+
+
+def _get_object_storage_client():
+    if ObjectStorageClient is None:
+        raise RuntimeError("Replit Object Storage client não está disponível.")
+    return ObjectStorageClient()
+
+
+def _build_icon_key(button_id, ext):
+    safe_ext = ext.lstrip(".")
+    return f"{OBJECT_STORAGE_BUCKET}/button-{button_id}.{safe_ext}"
 
 
 def _get_current_pin_hash():
@@ -193,6 +273,12 @@ def buttons_page():
 @require_auth
 def admin_dashboard():
     return render_template("admin.html")
+
+
+@app.get("/admin/buttons")
+@require_auth
+def admin_buttons_config():
+    return render_template("button-config.html")
 
 
 @app.post("/api/auth/pin")
@@ -261,7 +347,7 @@ def api_click():
     date_iso = today.isoformat()
     click_time_str = now.strftime("%H:%M:%S")
     timestamp_str = now.isoformat(timespec="seconds")
-    button_label = f"Botão {button_id}"
+    button_label = _get_button_label(button_id)
 
     with get_db_conn() as conn:
         # Ensure seq is consistent under concurrent clicks.
@@ -304,6 +390,136 @@ def api_click():
             "timestamp": timestamp_str,
         }
     )
+
+
+@app.get("/api/buttons/config")
+@require_auth
+def api_buttons_config():
+    config = _get_button_config_map()
+    result = []
+    for bid in sorted(ALLOWED_BUTTON_IDS):
+        entry = config.get(bid, {"label": f"Botão {bid}", "icon_key": None})
+        icon_updated_at = entry.get("icon_updated_at")
+        result.append(
+            {
+                "button_id": bid,
+                "label": entry.get("label", f"Botão {bid}"),
+                "has_icon": bool(entry.get("icon_key")),
+                "icon_url": f"/api/buttons/icon/{bid}" if entry.get("icon_key") else None,
+                "icon_updated_at": icon_updated_at.isoformat() if icon_updated_at else None,
+            }
+        )
+    return jsonify({"buttons": result})
+
+
+@app.post("/api/buttons/config")
+@require_auth
+def api_buttons_config_update():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "JSON inválido."}), 400
+
+    button_id = payload.get("button_id")
+    label = payload.get("label")
+
+    try:
+        button_id = int(button_id)
+    except Exception:
+        return jsonify({"error": "button_id inválido."}), 400
+
+    if button_id not in ALLOWED_BUTTON_IDS:
+        return jsonify({"error": "button_id inválido."}), 400
+
+    if not isinstance(label, str) or not label.strip():
+        return jsonify({"error": "Label inválido."}), 400
+
+    label = label.strip()[:80]
+
+    with get_db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE button_config SET label = %s WHERE button_id = %s;",
+                (label, button_id),
+            )
+        conn.commit()
+
+    return jsonify({"ok": True, "button_id": button_id, "label": label})
+
+
+@app.post("/api/buttons/icon/<int:button_id>")
+@require_auth
+def api_buttons_icon_upload(button_id):
+    if button_id not in ALLOWED_BUTTON_IDS:
+        return jsonify({"error": "button_id inválido."}), 400
+
+    if request.content_length and request.content_length > MAX_ICON_BYTES:
+        return jsonify({"error": "Ficheiro demasiado grande (máx 2MB)."}), 400
+
+    icon = request.files.get("icon")
+    if not icon:
+        return jsonify({"error": "Ficheiro 'icon' em falta."}), 400
+
+    mime = icon.mimetype or "application/octet-stream"
+    allowed = {
+        "image/png": "png",
+        "image/jpeg": "jpg",
+        "image/webp": "webp",
+        "image/svg+xml": "svg",
+    }
+    if mime not in allowed:
+        return jsonify({"error": "Formato inválido. Usa PNG, JPG, WEBP ou SVG."}), 400
+
+    ext = allowed[mime]
+    data = icon.read()
+    if len(data) > MAX_ICON_BYTES:
+        return jsonify({"error": "Ficheiro demasiado grande (máx 2MB)."}), 400
+
+    try:
+        client = _get_object_storage_client()
+        key = _build_icon_key(button_id, ext)
+        client.upload_from_bytes(key, data)
+    except Exception as e:
+        return jsonify({"error": f"Falha ao guardar no Object Storage: {e}"}), 500
+
+    with get_db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE button_config
+                SET icon_key = %s, icon_mime = %s, icon_updated_at = now()
+                WHERE button_id = %s;
+                """,
+                (key, mime, button_id),
+            )
+        conn.commit()
+
+    return jsonify({"ok": True, "button_id": button_id})
+
+
+@app.get("/api/buttons/icon/<int:button_id>")
+@require_auth
+def api_buttons_icon_get(button_id):
+    if button_id not in ALLOWED_BUTTON_IDS:
+        return jsonify({"error": "button_id inválido."}), 400
+
+    with get_db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT icon_key, icon_mime FROM button_config WHERE button_id = %s;",
+                (button_id,),
+            )
+            row = cur.fetchone()
+            if not row or not row[0]:
+                return ("", 404)
+            icon_key, icon_mime = row
+
+    try:
+        client = _get_object_storage_client()
+        data = client.download_as_bytes(icon_key)
+    except Exception as e:
+        return jsonify({"error": f"Falha ao ler do Object Storage: {e}"}), 500
+
+    return send_file(BytesIO(data), mimetype=icon_mime or "application/octet-stream")
 
 
 @app.get("/api/admin/stats")
@@ -372,6 +588,12 @@ def api_admin_stats():
     for bid in sorted(ALLOWED_BUTTON_IDS):
         per_button.setdefault(bid, 0)
 
+    button_config = _get_button_config_map()
+    button_labels = {
+        bid: (button_config.get(bid, {}).get("label") or f"Botão {bid}")
+        for bid in sorted(ALLOWED_BUTTON_IDS)
+    }
+
     return jsonify(
         {
             "total": total,
@@ -379,6 +601,7 @@ def api_admin_stats():
             "perButton": per_button,
             "perDay": per_day,
             "perHourToday": per_hour,
+            "buttonLabels": button_labels,
         }
     )
 
