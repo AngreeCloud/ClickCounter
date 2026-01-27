@@ -60,14 +60,17 @@
 
         <div class="modalBody">
           <ol class="helpList">
-            <li>Autentica com o PIN (Secret ADMIN_PIN). Sessão mantém-se até logout.</li>
-            <li>Dashboard mostra totais, hoje, e gráficos: por botão, por dia (14 dias) e por hora (hoje).</li>
-            <li>Para abrir os botões, clica “Abrir página dos botões”. Cada clique grava em <strong>click</strong> os campos: id, button_id, button, seq, date, date_iso, time, timestamp.</li>
-            <li>Em “Configurar botões” podes alterar o nome e carregar ícones. Os nomes ficam guardados na tabela <strong>button_config</strong> e passam a aparecer no campo <strong>button</strong> dos registos.</li>
-            <li>Os ícones são guardados no Replit Object Storage (bucket <strong>BtnIcons</strong>).</li>
-            <li>O seq é diário: conta registos com date = hoje e soma 1. No dia seguinte volta a 1.</li>
-            <li>Download Excel gera .xlsx com todas as colunas da tabela click.</li>
-            <li>Para terminar a sessão, usa Logout.</li>
+            <li><strong>Entrar:</strong> quando abrir o site, introduz o PIN e carrega em “Entrar”. Se o PIN estiver correto, vais para esta dashboard.</li>
+            <li><strong>Ver os totais:</strong> no topo encontras “Total cliques” (tudo o que já foi registado) e “Cliques hoje” (apenas do dia de hoje).</li>
+            <li><strong>Ler os gráficos:</strong> os gráficos ajudam a perceber rapidamente qual o botão mais usado e como os cliques evoluíram ao longo do tempo.</li>
+            <li><strong>Registar cliques:</strong> carrega em “Abrir página dos botões”. No ecrã dos botões, toca no botão pretendido para registar um clique.</li>
+            <li><strong>Confirmar que registou:</strong> após tocar num botão aparece uma notificação no topo com o número do clique e a hora. Se não aparecer, tenta novamente.</li>
+            <li><strong>Personalizar botões:</strong> carrega em “Configurar botões” para mudar o nome de cada botão e (se quiseres) adicionar um ícone.
+              <br />Dica: usa nomes curtos para caberem melhor no ecrã.</li>
+            <li><strong>Remover um ícone:</strong> na página “Configurar botões”, usa “Remover ícone” quando quiseres voltar a ficar sem imagem.</li>
+            <li><strong>Exportar para Excel:</strong> carrega em “Download Excel” para descarregar um ficheiro com os registos. Podes abrir no Excel/Sheets para filtrar ou imprimir.</li>
+            <li><strong>Terminar sessão:</strong> carrega em “Logout” quando acabares, especialmente em computadores partilhados.</li>
+            <li><strong>Se algo não funcionar:</strong> atualiza a página (F5). Se continua igual, faz “Logout” e entra novamente com o PIN.</li>
           </ol>
 
           <p class="signature">Projeto por <a href="https://github.com/AngreeCloud" target="_blank" rel="noreferrer">AngryCloud</a></p>
