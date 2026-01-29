@@ -97,12 +97,12 @@ body {
   top: calc(100% + 8px);
   min-width: 180px;
   border: 1px solid var(--border);
-  background: rgba(10, 14, 25, 0.95);
+  background: rgba(10, 14, 25, 0.98);
   border-radius: 12px;
   padding: 6px;
-  z-index: 5;
+  z-index: 9999;
   backdrop-filter: blur(12px);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
 }
 
 .splitMenu a {
