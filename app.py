@@ -1,7 +1,8 @@
 import os
+import csv
 from datetime import datetime, timezone, timedelta
 from functools import wraps
-from io import BytesIO
+from io import BytesIO, StringIO
 
 import psycopg2
 from flask import Flask, jsonify, redirect, render_template, request, send_file, session, url_for
@@ -662,6 +663,22 @@ def api_admin_stats():
 @app.get("/admin/export.xlsx")
 @require_auth
 def admin_export_xlsx():
+    return _build_click_export_response("xlsx")
+
+
+@app.get("/admin/export")
+@require_auth
+def admin_export():
+    fmt = (request.args.get("format") or "xlsx").strip().lower()
+    fmt = fmt.lstrip(".")
+    return _build_click_export_response(fmt)
+
+
+def _build_click_export_response(fmt: str):
+    allowed = {"xlsx", "csv", "txt"}
+    if fmt not in allowed:
+        return jsonify({"error": "Formato inválido. Usa xlsx, csv ou txt."}), 400
+
     with get_db_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -681,11 +698,67 @@ def admin_export_xlsx():
             )
             rows = cur.fetchall()
 
+    headers = ["id", "button_id", "button", "seq", "date", "date_iso", "time", "timestamp"]
+
+    if fmt == "csv":
+        sio = StringIO(newline="")
+        writer = csv.writer(sio)
+        writer.writerow(headers)
+        for (cid, button_id, button_val, seq, date_val, date_iso, time_val, ts_val) in rows:
+            writer.writerow(
+                [
+                    int(cid) if cid is not None else "",
+                    int(button_id) if button_id is not None else "",
+                    str(button_val) if button_val is not None else "",
+                    int(seq) if seq is not None else "",
+                    str(date_val) if date_val is not None else "",
+                    str(date_iso) if date_iso is not None else "",
+                    str(time_val) if time_val is not None else "",
+                    str(ts_val) if ts_val is not None else "",
+                ]
+            )
+
+        data = sio.getvalue().encode("utf-8-sig")
+        filename = f"clicks_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
+        return send_file(
+            BytesIO(data),
+            as_attachment=True,
+            download_name=filename,
+            mimetype="text/csv; charset=utf-8",
+        )
+
+    if fmt == "txt":
+        lines = ["\t".join(headers)]
+        for (cid, button_id, button_val, seq, date_val, date_iso, time_val, ts_val) in rows:
+            lines.append(
+                "\t".join(
+                    [
+                        str(int(cid)) if cid is not None else "",
+                        str(int(button_id)) if button_id is not None else "",
+                        str(button_val) if button_val is not None else "",
+                        str(int(seq)) if seq is not None else "",
+                        str(date_val) if date_val is not None else "",
+                        str(date_iso) if date_iso is not None else "",
+                        str(time_val) if time_val is not None else "",
+                        str(ts_val) if ts_val is not None else "",
+                    ]
+                )
+            )
+
+        data = ("\n".join(lines) + "\n").encode("utf-8")
+        filename = f"clicks_{datetime.now().strftime('%Y%m%d_%H%M')}.txt"
+        return send_file(
+            BytesIO(data),
+            as_attachment=True,
+            download_name=filename,
+            mimetype="text/plain; charset=utf-8",
+        )
+
     wb = Workbook()
     ws = wb.active
     ws.title = "click"
 
-    ws.append(["id", "button_id", "button", "seq", "date", "date_iso", "time", "timestamp"])
+    ws.append(headers)
     for (cid, button_id, button_val, seq, date_val, date_iso, time_val, ts_val) in rows:
         ws.append(
             [

@@ -18,7 +18,26 @@
         <button id="helpBtn" class="btn btnGhost" type="button">Help</button>
         <a class="btn" href="/admin/buttons">Configurar botões</a>
         <a class="btn" href="/buttons">Abrir página dos botões</a>
-        <a class="btn" href="/admin/export.xlsx">Download Excel</a>
+        <div class="splitBtn" id="exportSplit">
+          <a class="btn splitBtnMain" href="/admin/export">Download (.xlsx)</a>
+          <button
+            id="exportToggle"
+            class="btn splitBtnToggle"
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded="false"
+            aria-controls="exportMenu"
+            title="Escolher formato"
+          >
+            <span aria-hidden="true">▾</span>
+            <span class="srOnly">Escolher formato</span>
+          </button>
+          <div class="splitMenu" id="exportMenu" role="menu" hidden>
+            <a role="menuitem" href="/admin/export?format=xlsx">Excel (.xlsx)</a>
+            <a role="menuitem" href="/admin/export?format=csv">CSV (.csv)</a>
+            <a role="menuitem" href="/admin/export?format=txt">Texto (.txt)</a>
+          </div>
+        </div>
         <button id="logoutBtn" class="btn btnGhost" type="button">Logout</button>
       </div>
     </header>
@@ -68,7 +87,7 @@
             <li><strong>Personalizar botões:</strong> carrega em “Configurar botões” para mudar o nome de cada botão e (se quiseres) adicionar um ícone.
               <br />Dica: usa nomes curtos para caberem melhor no ecrã.</li>
             <li><strong>Remover um ícone:</strong> na página “Configurar botões”, usa “Remover ícone” quando quiseres voltar a ficar sem imagem.</li>
-            <li><strong>Exportar para Excel:</strong> carrega em “Download Excel” para descarregar um ficheiro com os registos. Podes abrir no Excel/Sheets para filtrar ou imprimir.</li>
+            <li><strong>Exportar:</strong> carrega no lado esquerdo de “Download” para descarregar em Excel (.xlsx). Se quiseres outro formato, usa a seta para escolher (.csv ou .txt).</li>
             <li><strong>Terminar sessão:</strong> carrega em “Logout” quando acabares, especialmente em computadores partilhados.</li>
             <li><strong>Se algo não funcionar:</strong> atualiza a página (F5). Se continua igual, faz “Logout” e entra novamente com o PIN.</li>
           </ol>

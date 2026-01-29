@@ -124,6 +124,10 @@ function buildPerHourChart(ctx, perHourToday) {
   const helpBtn = document.getElementById("helpBtn");
   const helpClose = document.getElementById("helpClose");
 
+  const exportSplit = document.getElementById("exportSplit");
+  const exportToggle = document.getElementById("exportToggle");
+  const exportMenu = document.getElementById("exportMenu");
+
   const setHelpOpen = (open) => {
     if (!helpModal) return;
     helpModal.hidden = !open;
@@ -139,7 +143,31 @@ function buildPerHourChart(ctx, perHourToday) {
     });
   }
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") setHelpOpen(false);
+    if (e.key === "Escape") {
+      setHelpOpen(false);
+      if (exportMenu) exportMenu.hidden = true;
+      if (exportToggle) exportToggle.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  const setExportMenuOpen = (open) => {
+    if (!exportMenu || !exportToggle) return;
+    exportMenu.hidden = !open;
+    exportToggle.setAttribute("aria-expanded", open ? "true" : "false");
+  };
+
+  if (exportToggle && exportMenu) {
+    exportToggle.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setExportMenuOpen(exportMenu.hidden);
+    });
+  }
+
+  document.addEventListener("click", (e) => {
+    if (!exportMenu || exportMenu.hidden) return;
+    if (exportSplit && exportSplit.contains(e.target)) return;
+    setExportMenuOpen(false);
   });
 
   if (logoutBtn) {
